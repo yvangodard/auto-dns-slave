@@ -49,9 +49,6 @@ if [[ $(checkUrl ${githubRemoteScript}) -eq 0 ]] && [[ $(md5sum "$0" | awk '{pri
 fi
 IFS=$OLDIFS
 
-# exit on error
-set -e
-
 echo ""  >> /var/log/incron.log
 echo "****************************** `date` ******************************"  >> /var/log/incron.log
 echo "$0 launched..." >> /var/log/incron.log
@@ -79,7 +76,6 @@ echo "Modifications qui vont être envoyées en scp :" >> /var/log/incron.log
 diff ${tempFile2} ${tempFile} >> /var/log/incron.log
 
 # On envoie les modifications sur le serveur de destination
-echo "scp -P ${portDestination} ${tempFile} root@${serveurDestination}:${confFileDest}.new"
 scp -P ${portDestination} ${tempFile} root@${serveurDestination}:${confFileDest}.new >> /var/log/incron.log 2>&1
 
 rm /tmp/${scriptNameWithoutExt}*
