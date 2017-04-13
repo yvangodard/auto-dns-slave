@@ -6,7 +6,7 @@ version="autDnsSlaveConfig v0.1 - 2017, Yvan Godard [godardyvan@gmail.com]"
 scriptDir=$(dirname "${0}")
 scriptName=$(basename "${0}")
 scriptNameWithoutExt=$(echo "${scriptName}" | cut -f1 -d '.')
-githubRemoteScript="https://raw.githubusercontent.com/yvangodard/auto-dns-slave/master/auto-dns-slave-config.sh"
+githubRemoteScript="https://raw.githubusercontent.com/yvangodard/auto-dns-slave/master/auto-dns-slave.sh"
 tempFile=$(mktemp /tmp/${scriptNameWithoutExt}.XXXXX)
 tempFile2=$(mktemp /tmp/${scriptNameWithoutExt}2.XXXXX)
 confFileDest="/etc/bind/named.pastefromprimaty.conf"
@@ -26,8 +26,31 @@ function checkUrl() {
   echo "$?"
 }
 
+# Changement du séparateur par défaut et mise à jour auto
+OLDIFS=$IFS
+IFS=$'\n'
+# Auto-update script
+if [[ $(checkUrl ${githubRemoteScript}) -eq 0 ]] && [[ $(md5sum "$0" | awk '{print $1}') != $(curl -Lsf ${githubRemoteScript} | md5sum | awk '{print $1}') ]]; then
+    [[ -e "$0".old ]] && rm "$0".old
+    mv "$0" "$0".old
+    curl -Lsf ${githubRemoteScript} >> "$0"
+    echo "An update for ${0} is available." >> /var/log/incron.log
+    echo "We download it from GitHub." >> /var/log/incron.log
+    if [ $? -eq 0 ]; then
+        echo "Update ok, relaunching the script." >> /var/log/incron.log
+        chmod +x "$0"
+        exec ${0} "$@"
+        exit $0
+    else
+        echo "Something went wrong when trying to upgrade ${0}." >> /var/log/incron.log
+        echo "We continue with the old version of the script." >> /var/log/incron.log
+    fi
+    echo ""
+fi
+IFS=$OLDIFS
+
 # exit on error
-# set -e
+set -e
 
 echo ""  >> /var/log/incron.log
 echo "****************************** `date` ******************************"  >> /var/log/incron.log
@@ -57,12 +80,8 @@ diff ${tempFile2} ${tempFile} >> /var/log/incron.log
 
 # On envoie les modifications sur le serveur de destination
 echo "scp -P ${portDestination} ${tempFile} root@${serveurDestination}:${confFileDest}.new"
-scp -P ${portDestination} ${tempFile} root@${serveurDestination}:${confFileDest}.new # >> /var/log/incron.log 2>&1
+scp -P ${portDestination} ${tempFile} root@${serveurDestination}:${confFileDest}.new >> /var/log/incron.log 2>&1
 
-echo ""
-echo "${tempFile}"
-echo "${tempFile2}"
-#[[ -e ${tempFile} ]] && rm ${tempFile}
-#[[ -e ${tempFile2} ]] && rm ${tempFile2}
+rm /tmp/${scriptNameWithoutExt}*
 
 exit 0
